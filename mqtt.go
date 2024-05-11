@@ -49,16 +49,12 @@ func handler(client mqtt.Client, message mqtt.Message) {
 	}
 }
 
-func statusUpdate() {
+func mqttStatusUpdate() {
 	client.Publish(shellyPrefix+"command", 1, false, "status_update")
 }
 
-func toggleOn() {
-	client.Publish(shellyPrefix+"command/switch:0", 0, false, "on")
-}
-
-func toggleOff() {
-	client.Publish(shellyPrefix+"command/switch:0", 0, false, "off")
+func mqttCommandSwitch(status bool) {
+	client.Publish(shellyPrefix+"command/switch:0", 0, false, boolToStr(status))
 }
 
 func mqttInit() error {
