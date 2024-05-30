@@ -8,13 +8,13 @@ import (
 	"strings"
 	"time"
 
-	tele "gopkg.in/telebot.v3"
+	telebotv3 "gopkg.in/telebot.v3"
 )
 
 var (
 	validUsers map[int64]string
-	b          *tele.Bot
-	m          *tele.ReplyMarkup
+	b          *telebotv3.Bot
+	m          *telebotv3.ReplyMarkup
 )
 
 type User struct {
@@ -25,9 +25,9 @@ type User struct {
 }
 
 func bot() {
-	pref := tele.Settings{
+	settings := telebotv3.Settings{
 		Token:       os.Getenv("TELEGRAM_TOKEN"),
-		Poller:      &tele.LongPoller{Timeout: 10 * time.Second},
+		Poller:      &telebotv3.LongPoller{Timeout: 10 * time.Second},
 		Synchronous: false,
 	}
 
@@ -49,46 +49,47 @@ func bot() {
 	}
 
 	var err error
-	b, err = tele.NewBot(pref)
+	b, err = telebotv3.NewBot(settings)
 	if err != nil {
 		log.Fatal(err)
 		return
 	}
 
-	statusButton := tele.InlineButton{Unique: "status", Text: "Statut"}
-	on := tele.InlineButton{Unique: "on", Text: "On ⚡️"}
-	off := tele.InlineButton{Unique: "off", Text: "Off"}
+	statusButton := telebotv3.InlineButton{Unique: "status", Text: "Statut"}
+	on := telebotv3.InlineButton{Unique: "on", Text: "On ⚡️"}
+	off := telebotv3.InlineButton{Unique: "off", Text: "Off"}
 
 	m = b.NewMarkup()
-	m.InlineKeyboard = append(m.InlineKeyboard, []tele.InlineButton{off, statusButton, on})
+	m.InlineKeyboard = append(m.InlineKeyboard,
+		[]telebotv3.InlineButton{off, statusButton, on})
 
-	b.Handle("/start", func(c tele.Context) error {
+	b.Handle("/start", func(c telebotv3.Context) error {
 		return c.Send(fenceStatus(), m)
 	})
 
-	b.Handle(&statusButton, func(c tele.Context) error {
+	b.Handle(&statusButton, func(c telebotv3.Context) error {
 		mqttStatusUpdate()
 		time.Sleep(200 * time.Millisecond)
 		_, _ = b.Edit(c.Message(), fenceStatus(), m)
-		return c.Respond(&tele.CallbackResponse{})
+		return c.Respond(&telebotv3.CallbackResponse{})
 	})
 
-	b.Handle(&on, func(c tele.Context) error {
+	b.Handle(&on, func(c telebotv3.Context) error {
 		return commandSwitch(true, c)
 	})
 
-	b.Handle(&off, func(c tele.Context) error {
+	b.Handle(&off, func(c telebotv3.Context) error {
 		return commandSwitch(false, c)
 	})
 
 	b.Start()
 }
 
-func commandSwitch(status bool, c tele.Context) error {
+func commandSwitch(status bool, c telebotv3.Context) error {
 	attrs := chatToAttrs(c.Chat())
 	if _, ok := validUsers[c.Chat().ID]; !ok {
 		slog.Info("unauthenticated user", attrs...)
-		return c.Respond(&tele.CallbackResponse{Text: "Utilisateur non autorisé"})
+		return c.Respond(&telebotv3.CallbackResponse{Text: "Utilisateur non autorisé"})
 	}
 
 	attrs = append(attrs, slog.Attr{Key: "desired_switch_status", Value: slog.StringValue(boolToStr(status))})
@@ -97,10 +98,10 @@ func commandSwitch(status bool, c tele.Context) error {
 
 	time.Sleep(250 * time.Millisecond)
 	_, _ = b.Edit(c.Message(), fenceStatus(), m)
-	return c.Respond(&tele.CallbackResponse{})
+	return c.Respond(&telebotv3.CallbackResponse{})
 }
 
-func chatToAttrs(chat *tele.Chat) (attrs []any) {
+func chatToAttrs(chat *telebotv3.Chat) (attrs []any) {
 	attrs = append(attrs, slog.Attr{Key: "first_name", Value: slog.StringValue(chat.FirstName)})
 	attrs = append(attrs, slog.Attr{Key: "last_name", Value: slog.StringValue(chat.LastName)})
 	attrs = append(attrs, slog.Attr{Key: "username", Value: slog.StringValue(chat.Username)})
